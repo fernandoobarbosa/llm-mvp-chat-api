@@ -1,8 +1,36 @@
 import { Elysia } from "elysia";
-import { readFileSync } from "fs";
+import { readdirSync, readFileSync } from "fs";
+import { join, relative } from "path";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 
-const document = readFileSync("./docs/documento.txt", "utf-8");
+const docsDirectory = "./docs";
+
+function getAllDocsFiles(dir: string): string[] {
+  const entries = readdirSync(dir, { withFileTypes: true });
+
+  return entries.flatMap((entry) => {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      return getAllDocsFiles(fullPath);
+    }
+    return [fullPath];
+  });
+}
+
+function buildDocsContext(): string {
+  const files = getAllDocsFiles(docsDirectory).sort((a, b) =>
+    a.localeCompare(b),
+  );
+
+  return files
+    .map((filePath) => {
+      const fileName = relative(docsDirectory, filePath);
+      const content = readFileSync(filePath, "utf-8");
+      return `ARQUIVO: ${fileName}\n${content}`;
+    })
+    .join("\n\n");
+}
+
 const googleModel = process.env.GOOGLE_MODEL ?? "gemini-2.0-flash";
 
 const model = new ChatGoogleGenerativeAI({
@@ -31,11 +59,30 @@ export const chatRoutes = new Elysia().post("/chat", async ({ body, set }) => {
     };
   }
 
-  const prompt = `
-Responda apenas usando o documento abaixo.
+  let docsContext = "";
+  try {
+    docsContext = buildDocsContext();
+  } catch {
+    set.status = 500;
+    return {
+      error: "Nao foi possivel ler os arquivos da pasta docs.",
+    };
+  }
 
-DOCUMENTO:
-${document}
+  if (!docsContext.trim()) {
+    set.status = 500;
+    return {
+      error: "Nenhum documento encontrado na pasta docs.",
+    };
+  }
+
+  const prompt = `
+Responda apenas usando os documentos abaixo.
+Se a resposta nao estiver nos documentos, diga:
+"Não tenho essa informação registrada nos materiais que possuo. Você pode verificar diretamente no painel do cliente ou no canal de suporte."
+
+DOCUMENTOS:
+${docsContext}
 
 PERGUNTA:
 ${message}
