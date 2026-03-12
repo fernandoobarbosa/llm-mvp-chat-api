@@ -1,0 +1,20 @@
+{
+  "name": "llm-chat-mvp-api",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+   "scripts": {
+    "dev": "bun run src/server.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@langchain/core": "^1.1.32",
+    "@langchain/google-genai": "^2.1.25",
+    "elysia": "^1.4.27"
+  }
+}
